@@ -16,4 +16,11 @@ public class Player {
     public char getDisc() {
         return disc;
     }
+
+
+    @Override
+    public String toString() {
+        return "Player{name='" + name + "', disc=" + disc + '}';
+    }
+
 }

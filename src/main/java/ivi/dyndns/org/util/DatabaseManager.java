@@ -4,7 +4,7 @@ import java.sql.*;
 
 public class DatabaseManager {
 
-    private static final String URL = "jdbc:sqlite:game_scores.db";  // Az SQLite adatbázis fájl neve
+    private static final String URL = "jdbc:sqlite:game_scores.db";  // SQLite adatbázis neve
     private static Connection connection = null;
 
     // Kapcsolódás az adatbázishoz
@@ -21,27 +21,30 @@ public class DatabaseManager {
 
     // Táblák létrehozása (ha nem léteznek)
     public static void createTables() {
-        String playersTableSQL = "CREATE TABLE IF NOT EXISTS players (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "name TEXT NOT NULL, " +
-                "wins INTEGER DEFAULT 0);";
+        String playersTableSQL = """
+                CREATE TABLE IF NOT EXISTS players (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    name TEXT NOT NULL UNIQUE, 
+                    wins INTEGER DEFAULT 0
+                );
+                """;
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(playersTableSQL);
-            System.out.println("Táblák létrehozva.");
+            System.out.println("Táblák létrehozva vagy már léteznek.");
         } catch (SQLException e) {
             System.out.println("Hiba a táblák létrehozásakor: " + e.getMessage());
         }
     }
 
-    // Játékos mentése
-    public static void savePlayer(String playerName) {
-        String sql = "INSERT INTO players (name, wins) VALUES (?, 0)";
+    // Játékos hozzáadása (ha még nem létezik)
+    public static void addPlayerIfNotExists(String playerName) {
+        String sql = "INSERT OR IGNORE INTO players (name, wins) VALUES (?, 0)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, playerName);
+            pstmt.setString(1, playerName.toUpperCase()); // Nagybetűs név tárolása
             pstmt.executeUpdate();
-            System.out.println("Játékos mentve: " + playerName);
+            System.out.println("Játékos hozzáadva (ha még nem létezett): " + playerName);
         } catch (SQLException e) {
-            System.out.println("Hiba a játékos mentésekor: " + e.getMessage());
+            System.out.println("Hiba a játékos hozzáadásakor: " + e.getMessage());
         }
     }
 
@@ -49,23 +52,30 @@ public class DatabaseManager {
     public static void updateWins(String playerName) {
         String sql = "UPDATE players SET wins = wins + 1 WHERE name = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, playerName);
-            pstmt.executeUpdate();
-            System.out.println("Játékos nyereménye frissítve: " + playerName);
+            pstmt.setString(1, playerName.toUpperCase());
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Játékos nyereménye frissítve: " + playerName);
+            } else {
+                System.out.println("A játékos nem található: " + playerName);
+            }
         } catch (SQLException e) {
             System.out.println("Hiba a nyeremény frissítésekor: " + e.getMessage());
         }
     }
 
-    // Ranglista lekérdezése (összesített)
-    public static void printLeaderboard() {
-        String sql = "SELECT name, wins FROM players ORDER BY wins DESC";
+    // TOP 10 ranglista lekérdezése
+    public static void displayTopScores() {
+        String sql = "SELECT name, wins FROM players ORDER BY wins DESC LIMIT 10";
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
-            System.out.println("Ranglista:");
+
+            System.out.println("\nTOP 10 Ranglista:");
+            int rank = 1;
             while (rs.next()) {
-                System.out.println(rs.getString("name") + ": " + rs.getInt("wins"));
+                System.out.printf("%d. %s - %d győzelem%n", rank++, rs.getString("name"), rs.getInt("wins"));
             }
+
         } catch (SQLException e) {
             System.out.println("Hiba a ranglista lekérdezésekor: " + e.getMessage());
         }
@@ -75,7 +85,7 @@ public class DatabaseManager {
     public static boolean playerExists(String playerName) {
         String sql = "SELECT COUNT(*) FROM players WHERE name = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, playerName);
+            pstmt.setString(1, playerName.toUpperCase());
             try (ResultSet rs = pstmt.executeQuery()) {
                 return rs.getInt(1) > 0;
             }
@@ -85,7 +95,7 @@ public class DatabaseManager {
         return false;
     }
 
-    // Adatbázis kapcsolat bezárása
+    // Adatbázis kapcsolat lezárása
     public static void closeConnection() {
         try {
             if (connection != null && !connection.isClosed()) {
@@ -93,7 +103,7 @@ public class DatabaseManager {
                 System.out.println("Adatbázis kapcsolat lezárva.");
             }
         } catch (SQLException e) {
-            System.out.println("Hiba az adatbázis kapcsolat bezárásakor: " + e.getMessage());
+            System.out.println("Hiba az adatbázis kapcsolat lezárásakor: " + e.getMessage());
         }
     }
 }

@@ -144,6 +144,11 @@ public class Board {
         };
     }
 
+    public boolean isColumnValid(int col) {
+        return col >= 0 && col < cols && grid[0][col] == ' '; // Az oszlop teteje üres
+    }
+
+
     // Getterek
     public int getRows() {
         return rows;
