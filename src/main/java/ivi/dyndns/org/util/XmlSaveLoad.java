@@ -1,9 +1,6 @@
 package ivi.dyndns.org.util;
 
-import ivi.dyndns.org.service.Game;
 import ivi.dyndns.org.model.GameState;
-
-import ivi.dyndns.org.service.Game;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
@@ -22,6 +19,14 @@ public class XmlSaveLoad {
         try {
             GameState gameState = new GameState(players, moves, currentPlayer, rows, cols);
 
+            // Ellenőrizzük, hogy az adatok helyesek-e
+            System.out.println("Menteni kívánt GameState objektum:");
+            System.out.println("Sorok száma: " + rows);
+            System.out.println("Oszlopok száma: " + cols);
+            System.out.println("Játékosok: " + players);
+            System.out.println("Lépéssorozat: " + moves);
+            System.out.println("Aktuális játékos: " + currentPlayer);
+
             JAXBContext context = JAXBContext.newInstance(GameState.class);
             Marshaller marshaller = context.createMarshaller();
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
@@ -30,8 +35,13 @@ public class XmlSaveLoad {
             System.out.println("Játék sikeresen mentve XML formátumban.");
         } catch (JAXBException e) {
             System.err.println("Hiba történt az XML mentés során: " + e.getMessage());
+            e.printStackTrace(); // A teljes hibaüzenetet kiírjuk
+        } catch (Exception e) {
+            System.err.println("Ismeretlen hiba történt az XML mentés során: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
 
     // Betöltés XML-ből
     public static List<String> readXMLSave() {

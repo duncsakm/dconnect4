@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<gameState>
+    <cols>11</cols>
+    <currentPlayer>B</currentPlayer>
+    <moves>GABAB</moves>
+    <players>A</players>
+    <players>B</players>
+    <rows>11</rows>
+</gameState>

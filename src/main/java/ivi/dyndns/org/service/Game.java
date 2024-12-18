@@ -21,35 +21,48 @@ public class Game {
     public void play() {
         DatabaseManager.connect(); // Kapcsolódás az adatbázishoz
         DatabaseManager.createTables();
-        while (true) {
-            System.out.println("Parancsok: LAST (TXT betöltése), LOAD (XML betöltése), SAVE (XML mentése), SCORE (Top 10 játékos), NEW (Új játék), EXIT (Kilépés)");
+        boolean exitGame = false;
+
+        while (!exitGame) {
+            System.out.println("Menü:");
+            System.out.println("N - Új játék");
+            if (SaveLoad.doesSaveFileExist()) { // Félbemaradt játék ellenőrzése
+                System.out.println("R - Félbemaradt játék betöltése");
+            }
+            System.out.println("L - Mentett játék betöltése");
+            System.out.println("T - Top 10 játékos");
+            System.out.println("X - Kilépés");
             System.out.print("Válassz egy lehetőséget: ");
+
             String command = scanner.nextLine().toUpperCase();
 
             switch (command) {
-                case "LAST":
-                    loadGameFromTXT();
-                    break;
-                case "LOAD":
-                    loadGameFromXML();
-                    break;
-                case "SAVE":
-                    saveGameToXML();
-                    break;
-                case "SCORE":
-                    displayTopScores();
-                    break;
-                case "NEW":
+                case "N":
                     startNewGame();
                     break;
-                case "EXIT":
+                case "L":
+                    loadGameFromXML();
+                    break;
+                case "R":
+                    if (SaveLoad.doesSaveFileExist()) {
+                        loadGameFromTXT();
+                    } else {
+                        System.out.println("Nincs félbemaradt játék.");
+                    }
+                    break;
+                case "T":
+                    displayTopScores();
+                    break;
+                case "X":
                     System.out.println("Kilépés a játékból...");
-                    return;
+                    exitGame = true;
+                    break;
                 default:
                     System.out.println("Érvénytelen parancs. Próbáld újra!");
             }
         }
     }
+
 
     private void loadGameFromTXT() {
         if (SaveLoad.doesSaveFileExist()) {
@@ -84,6 +97,15 @@ public class Game {
             System.out.println("Nincs aktív játék, amit menthetnénk.");
             return;
         }
+
+        // Kiíratjuk, hogy mit mentene az XML-be
+        /*System.out.println("Menteni kívánt játékállapot:");
+        System.out.println("Sorok száma: " + board.getRows());
+        System.out.println("Oszlopok száma: " + board.getCols());
+        System.out.println("Játékosok: " + players);
+        System.out.println("Lépéssorozat: " + moves);
+        System.out.println("Aktuális játékos: " + currentPlayer);*/
+
         System.out.println("Játék mentése XML formátumban...");
         XmlSaveLoad.saveGameStateToXML(board.getRows(), board.getCols(), players, moves, currentPlayer);
     }
@@ -129,13 +151,36 @@ public class Game {
         board = new Board(rows, cols);
         players = new ArrayList<>();
 
-        System.out.print("Adja meg az első játékos nevét (sárga korong - O): ");
-        players.add(scanner.nextLine().toUpperCase());
-        System.out.print("Adja meg a második játékos nevét (piros korong - X): ");
-        String secondPlayer = scanner.nextLine().toUpperCase();
-        players.add(secondPlayer.equals("AI") ? "AI" : secondPlayer);
+        String player1, player2;
+        while (true) {
+            System.out.print("Adja meg az első játékos nevét (sárga korong - O): ");
+            player1 = scanner.nextLine().trim().toUpperCase();
+            if (player1.isEmpty()) {
+                System.out.println("A játékos neve nem lehet üres. Próbáld újra!");
+                continue;
+            }
+            break;
+        }
+
+        while (true) {
+            System.out.print("Adja meg a második játékos nevét (piros korong - X): ");
+            player2 = scanner.nextLine().trim().toUpperCase();
+            if (player2.isEmpty()) {
+                System.out.println("A játékos neve nem lehet üres. Próbáld újra!");
+                continue;
+            }
+            if (player1.equals(player2)) {
+                System.out.println("A két játékos neve nem lehet azonos. Próbáld újra!");
+                continue;
+            }
+            break;
+        }
+
+        players.add(player1);
+        players.add(player2.equals("AI") ? "AI" : player2);
 
         currentPlayer = players.get(0);
+        moves = "";
         SaveLoad.saveGameState(board.getRows(), board.getCols(), players, moves);
     }
 
@@ -155,32 +200,81 @@ public class Game {
             board.display();
             System.out.println(currentPlayer + " következik.");
 
-            int col = isAIPlayer(currentPlayer) ? getAIMove() : getPlayerMove();
+            if (isAIPlayer(currentPlayer)) {
+                System.out.println("AI gondolkodik...");
+                int col = getAIMove();
+                System.out.println("AI választott oszlop: " + (char) ('A' + col));
 
-            if (!board.dropDisc(col, getDiscForCurrentPlayer())) {
-                System.out.println("Ez az oszlop tele van. Próbálkozz máshol!");
-                continue;
-            }
+                if (!board.dropDisc(col, getDiscForCurrentPlayer())) {
+                    System.out.println("AI hibát követett el: próbál újra.");
+                    continue; // Újrapróbálkozás
+                }
 
-            saveGameStep(col);
+                saveGameStep(col);
 
-            if (board.checkWin()) {
-                board.display();
-                System.out.println(currentPlayer + " nyert!");
-                clearGameStateOnGameOver();
-                DatabaseManager.addPlayerIfNotExists(currentPlayer);
-                DatabaseManager.updateWins(currentPlayer);
-                gameOver = true;
-            } else if (board.isFull()) {
-                board.display();
-                System.out.println("Döntetlen!");
-                clearGameStateOnGameOver();
-                gameOver = true;
+                if (board.checkWin()) {
+                    board.display();
+                    System.out.println(currentPlayer + " nyert!");
+                    clearGameStateOnGameOver();
+                    DatabaseManager.addPlayerIfNotExists(currentPlayer);
+                    DatabaseManager.updateWins(currentPlayer);
+                    gameOver = true;
+                } else if (board.isFull()) {
+                    board.display();
+                    System.out.println("Döntetlen!");
+                    clearGameStateOnGameOver();
+                    gameOver = true;
+                } else {
+                    switchPlayer();
+                }
+
             } else {
-                switchPlayer();
+                System.out.println("Válasszon oszlopot (A-" + (char) ('A' + board.getCols() - 1) + "), vagy használja: S - Mentés, X - Menübe lépés");
+                String input = scanner.nextLine().toUpperCase();
+
+                if ("S".equals(input)) {
+                    saveGameToXML();
+                    System.out.println("Játékállapot elmentve XML-be.");
+                    continue;
+                } else if ("X".equals(input)) {
+                    System.out.println("Visszalépés a főmenübe...");
+                    return;
+                } else if (input.length() == 1) {
+                    int col = input.charAt(0) - 'A';
+                    if (col >= 0 && col < board.getCols()) {
+                        if (!board.dropDisc(col, getDiscForCurrentPlayer())) {
+                            System.out.println("Ez az oszlop tele van. Próbáld másikat!");
+                            continue;
+                        }
+
+                        saveGameStep(col);
+
+                        if (board.checkWin()) {
+                            board.display();
+                            System.out.println(currentPlayer + " nyert!");
+                            clearGameStateOnGameOver();
+                            DatabaseManager.addPlayerIfNotExists(currentPlayer);
+                            DatabaseManager.updateWins(currentPlayer);
+                            gameOver = true;
+                        } else if (board.isFull()) {
+                            board.display();
+                            System.out.println("Döntetlen!");
+                            clearGameStateOnGameOver();
+                            gameOver = true;
+                        } else {
+                            switchPlayer();
+                        }
+                    } else {
+                        System.out.println("Érvénytelen oszlop. Próbáld újra!");
+                    }
+                } else {
+                    System.out.println("Érvénytelen bemenet. Próbáld újra!");
+                }
             }
         }
     }
+
+
 
     private int getPlayerMove() {
         int col = -1;
